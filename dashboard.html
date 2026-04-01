@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vendor Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; padding: 32px; }
+  .header { background: white; border-radius: 12px; padding: 24px 32px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  h1 { font-size: 22px; color: #1a202c; }
+  .btn { background: #2b6cb0; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .btn:hover { background: #2c5282; }
+  .btn:disabled { background: #a0aec0; cursor: not-allowed; }
+  .upload-section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .upload-section h2 { font-size: 16px; color: #2d3748; margin-bottom: 16px; }
+  .upload-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input[type="file"] { border: 1px solid #cbd5e0; border-radius: 8px; padding: 8px 12px; font-size: 14px; flex: 1; min-width: 200px; }
+  .vendor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .vendor-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .vendor-name { font-size: 16px; font-weight: 600; color: #1a202c; margin-bottom: 16px; }
+  .score-ring { text-align: center; margin-bottom: 16px; }
+  .score-num { font-size: 42px; font-weight: 700; }
+  .score-label { font-size: 12px; color: #718096; }
+  .score-high { color: #276749; }
+  .score-mid { color: #b7791f; }
+  .score-low { color: #c53030; }
+  .risk-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid #f7fafc; font-size: 13px; }
+  .risk-badge { padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+  .risk-high { background: #fff5f5; color: #c53030; }
+  .risk-med { background: #fffaf0; color: #b7791f; }
+  .risk-low { background: #f0fff4; color: #276749; }
+  .validations { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 24px; }
+  .val-item { padding: 12px 0; border-bottom: 1px solid #f7fafc; display: flex; gap: 12px; align-items: flex-start; }
+  .val-item:last-child { border-bottom: none; }
+  .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .status-met { background: #f0fff4; color: #276749; }
+  .status-partial { background: #fffaf0; color: #b7791f; }
+  .status-missing { background: #fff5f5; color: #c53030; }
+  .confidence { font-size: 12px; color: #718096; margin-top: 4px; }
+  .empty { text-align: center; padding: 48px; color: #a0aec0; }
+  .status-msg { padding: 10px 16px; border-radius: 8px; font-size: 14px; margin-top: 12px; display: none; }
+  .status-msg.show { display: block; }
+  .loading-msg { background: #ebf8ff; color: #2b6cb0; }
+  .success-msg { background: #f0fff4; color: #276749; }
+  .error-msg { background: #fff5f5; color: #c53030; }
+  select { border: 1px solid #cbd5e0; border-radius: 8px; padding: 8px 12px; font-size: 14px; color: #2d3748; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📊 Vendor Comparison Dashboard</h1>
+  <a href="/checklist" style="background:#718096; color:white; padding:10px 24px; border-radius:8px; text-decoration:none; font-size:14px;">← Checklist</a>
+</div>
+
+<div class="upload-section">
+  <h2>➕ Add Vendor Proposal</h2>
+  <div class="upload-row">
+    <input type="file" id="vendor-file" accept=".pdf">
+    <button class="btn" onclick="uploadVendor()">Upload & Analyze</button>
+  </div>
+  <div class="status-msg" id="upload-status"></div>
+</div>
+
+<div id="vendor-grid" class="vendor-grid"></div>
+
+<div id="detail-section" style="display:none;">
+  <div class="validations">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="font-size:16px; color:#2d3748;">📋 Requirement Validations</h2>
+      <select id="vendor-select" onchange="showDetail(this.value)"></select>
+    </div>
+    <div id="validations-list"></div>
+  </div>
+</div>
+
+<script>
+  let dashboardData = { vendors: [] };
+
+  async function loadDashboard() {
+    const res = await fetch('/dashboard-data');
+    dashboardData = await res.json();
+    renderVendors();
+  }
+
+  function renderVendors() {
+    const grid = document.getElementById('vendor-grid');
+    if (dashboardData.vendors.length === 0) {
+      grid.innerHTML = '<div class="empty" style="background:white;border-radius:12px;padding:48px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">No vendors analyzed yet. Upload a vendor proposal above.</div>';
+      return;
+    }
+    grid.innerHTML = dashboardData.vendors.map(v => {
+      const scoreClass = v.compliance_score >= 70 ? 'score-high' : v.compliance_score >= 40 ? 'score-mid' : 'score-low';
+      return `
+        <div class="vendor-card">
+          <div class="vendor-name">🏢 ${v.name}</div>
+          <div class="score-ring">
+            <div class="score-num ${scoreClass}">${v.compliance_score}%</div>
+            <div class="score-label">Compliance Score</div>
+          </div>
+          <div class="risk-row"><span>🔴 High Risks</span><span class="risk-badge risk-high">${v.high_risks}</span></div>
+          <div class="risk-row"><span>🟡 Medium Risks</span><span class="risk-badge risk-med">${v.medium_risks}</span></div>
+          <div class="risk-row"><span>🟢 Low Risks</span><span class="risk-badge risk-low">${v.low_risks}</span></div>
+          <div class="risk-row"><span>Total Flags</span><span>${v.total_risks}</span></div>
+          <button class="btn" style="width:100%;margin-top:16px;" onclick="showDetail('${v.name}')">View Details</button>
+        </div>
+      `;
+    }).join('');
+
+    const select = document.getElementById('vendor-select');
+    select.innerHTML = dashboardData.vendors.map(v => `<option value="${v.name}">${v.name}</option>`).join('');
+    document.getElementById('detail-section').style.display = 'block';
+    showDetail(dashboardData.vendors[0].name);
+  }
+
+  function showDetail(vendorName) {
+    document.getElementById('vendor-select').value = vendorName;
+    const vendor = dashboardData.vendors.find(v => v.name === vendorName);
+    if (!vendor) return;
+    document.getElementById('validations-list').innerHTML = vendor.validations.map(val => {
+      const statusClass = val.status === 'Met' ? 'status-met' : val.status === 'Partially Met' ? 'status-partial' : 'status-missing';
+      return `
+        <div class="val-item">
+          <span class="status-badge ${statusClass}">${val.status}</span>
+          <div style="flex:1;">
+            <div style="font-size:14px;color:#2d3748;">${val.requirement_text}</div>
+            <div class="confidence">Confidence: ${val.confidence}% · ${val.reason}</div>
+            ${val.matching_text && val.matching_text !== 'null' ? `<div style="font-size:12px;color:#718096;margin-top:4px;font-style:italic;">"${val.matching_text}"</div>` : ''}
+          </div>
+          <span style="font-size:11px;background:#f7fafc;padding:2px 8px;border-radius:8px;color:#718096;">${val.category}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function uploadVendor() {
+    const file = document.getElementById('vendor-file').files[0];
+    if (!file) { alert('Please select a vendor PDF first.'); return; }
+    const statusEl = document.getElementById('upload-status');
+    statusEl.className = 'status-msg show loading-msg';
+    statusEl.textContent = '⏳ Uploading vendor proposal...';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const uploadRes = await fetch('/upload-vendor', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      const vendorName = uploadData.vendor_name;
+      statusEl.textContent = '🤖 Validating requirements... (this takes ~30 seconds)';
+      await fetch('/validate-vendor', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({vendor_name: vendorName}) });
+      statusEl.textContent = '🔍 Detecting risks...';
+      await fetch('/detect-risks', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({vendor_name: vendorName}) });
+      statusEl.className = 'status-msg show success-msg';
+      statusEl.textContent = `✅ ${vendorName} analyzed successfully!`;
+      loadDashboard();
+    } catch (err) {
+      statusEl.className = 'status-msg show error-msg';
+      statusEl.textContent = '❌ Error: ' + err.message;
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Requirements Checklist</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; padding: 32px; }
+  .header { background: white; border-radius: 12px; padding: 24px 32px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  h1 { font-size: 22px; color: #1a202c; }
+  .btn { background: #2b6cb0; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { background: #2c5282; }
+  .btn-green { background: #276749; }
+  .btn-green:hover { background: #22543d; }
+  .filters { background: white; border-radius: 12px; padding: 16px 24px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .filter-btn { padding: 6px 16px; border-radius: 20px; border: 1px solid #cbd5e0; background: white; cursor: pointer; font-size: 13px; color: #4a5568; }
+  .filter-btn.active { background: #2b6cb0; color: white; border-color: #2b6cb0; }
+  .table-wrap { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 12px 16px; font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 14px 16px; font-size: 14px; color: #2d3748; border-bottom: 1px solid #f7fafc; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f7fafc; }
+  .badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+  .badge-technical { background: #ebf8ff; color: #2b6cb0; }
+  .badge-legal { background: #fff5f5; color: #c53030; }
+  .badge-financial { background: #f0fff4; color: #276749; }
+  .badge-operational { background: #fffff0; color: #744210; }
+  .keyword { background: #faf5ff; color: #6b46c1; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-family: monospace; }
+  .loading { text-align: center; padding: 48px; color: #718096; }
+  .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+  .stat { background: #f7fafc; border-radius: 8px; padding: 16px 20px; flex: 1; }
+  .stat-num { font-size: 28px; font-weight: 700; color: #2b6cb0; }
+  .stat-label { font-size: 12px; color: #718096; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📋 Requirements Checklist</h1>
+  <div style="display:flex; gap:12px;">
+    <a href="/" class="btn" style="background:#718096;">← Upload New RFP</a>
+    <a href="/dashboard" class="btn btn-green">Go to Dashboard →</a>
+  </div>
+</div>
+<div id="content"><div class="loading">⏳ Loading requirements...</div></div>
+<script>
+  let allRequirements = [];
+  let activeFilter = 'All';
+
+  async function loadRequirements() {
+    const res = await fetch('/get-requirements');
+    const data = await res.json();
+    allRequirements = data.requirements;
+    render();
+  }
+
+  function render() {
+    const filtered = activeFilter === 'All' ? allRequirements : allRequirements.filter(r => r.category === activeFilter);
+    const categories = ['All', 'Technical', 'Legal', 'Financial', 'Operational'];
+    const counts = {};
+    categories.forEach(c => {
+      counts[c] = c === 'All' ? allRequirements.length : allRequirements.filter(r => r.category === c).length;
+    });
+    document.getElementById('content').innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="stat-num">${allRequirements.length}</div><div class="stat-label">Total Requirements</div></div>
+        <div class="stat"><div class="stat-num">${counts['Technical']}</div><div class="stat-label">Technical</div></div>
+        <div class="stat"><div class="stat-num">${counts['Legal']}</div><div class="stat-label">Legal</div></div>
+        <div class="stat"><div class="stat-num">${counts['Financial']}</div><div class="stat-label">Financial</div></div>
+      </div>
+      <div class="filters">
+        ${categories.map(c => `<button class="filter-btn ${activeFilter===c?'active':''}" onclick="setFilter('${c}')">${c} (${counts[c]})</button>`).join('')}
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Requirement</th><th>Category</th><th>Keyword</th></tr></thead>
+          <tbody>
+            ${filtered.map(r => `
+              <tr>
+                <td style="color:#a0aec0;">${r.id}</td>
+                <td>${r.requirement_text}</td>
+                <td><span class="badge badge-${r.category.toLowerCase()}">${r.category}</span></td>
+                <td><span class="keyword">${r.keyword_trigger}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function setFilter(cat) {
+    activeFilter = cat;
+    render();
+  }
+
+  loadRequirements();
+</script>
+</body>
+</html>

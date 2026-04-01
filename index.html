@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tender Compliance Validator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .container { background: white; border-radius: 16px; padding: 48px; max-width: 600px; width: 90%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+  h1 { font-size: 28px; color: #1a202c; margin-bottom: 8px; }
+  p { color: #718096; margin-bottom: 32px; font-size: 15px; }
+  .upload-box { border: 2px dashed #cbd5e0; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 24px; }
+  .upload-box:hover { border-color: #4299e1; background: #ebf8ff; }
+  .upload-box input { display: none; }
+  .upload-box label { cursor: pointer; }
+  .upload-icon { font-size: 48px; margin-bottom: 12px; }
+  .upload-text { color: #4a5568; font-size: 15px; }
+  .upload-text span { color: #4299e1; font-weight: 600; }
+  .btn { background: #2b6cb0; color: white; border: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; transition: background 0.2s; }
+  .btn:hover { background: #2c5282; }
+  .btn:disabled { background: #a0aec0; cursor: not-allowed; }
+  .status { margin-top: 16px; padding: 12px 16px; border-radius: 8px; font-size: 14px; display: none; }
+  .status.success { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; display: block; }
+  .status.error { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; display: block; }
+  .status.loading { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; display: block; }
+  .file-name { margin-top: 8px; font-size: 13px; color: #4a5568; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📋 Tender Compliance Validator</h1>
+  <p>Upload your RFP document to automatically extract all mandatory requirements and begin the compliance review process.</p>
+  <div class="upload-box" onclick="document.getElementById('rfp-file').click()">
+    <input type="file" id="rfp-file" accept=".pdf" onchange="handleFileSelect(this)">
+    <label>
+      <div class="upload-icon">📄</div>
+      <div class="upload-text">Click to upload your <span>RFP Document</span></div>
+      <div class="upload-text" style="font-size:13px; color:#a0aec0; margin-top:4px;">PDF files only</div>
+    </label>
+  </div>
+  <div class="file-name" id="file-name"></div>
+  <button class="btn" id="upload-btn" onclick="uploadRFP()" disabled>Upload & Extract Requirements</button>
+  <div class="status" id="status"></div>
+</div>
+<script>
+  function handleFileSelect(input) {
+    const file = input.files[0];
+    if (file) {
+      document.getElementById('file-name').textContent = '📎 ' + file.name;
+      document.getElementById('upload-btn').disabled = false;
+    }
+  }
+  async function uploadRFP() {
+    const file = document.getElementById('rfp-file').files[0];
+    if (!file) return;
+    const btn = document.getElementById('upload-btn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    status.className = 'status loading';
+    status.textContent = '⏳ Uploading and reading your PDF...';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const uploadRes = await fetch('/upload-rfp', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      status.textContent = '🤖 Extracting requirements with AI...';
+      const extractRes = await fetch('/extract-requirements', { method: 'POST' });
+      const extractData = await extractRes.json();
+      status.className = 'status success';
+      status.textContent = `✅ Found ${extractData.requirements.length} requirements! Redirecting...`;
+      setTimeout(() => { window.location.href = '/checklist'; }, 1500);
+    } catch (err) {
+      status.className = 'status error';
+      status.textContent = '❌ Error: ' + err.message;
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
