@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-jinja2
-python-multipart
-pypdf
-pdfplumber
-groq
-httpx
