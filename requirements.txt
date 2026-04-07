@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+pdfplumber
+pypdf
+groq
+python-dotenv
+httpx
+reportlab
